@@ -3,6 +3,18 @@ import numpy as np
 import torch.nn
 
 
+def lstsq(A: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """Substitute to torch.linalg.lstsq which fails in Autograd.
+
+    :param A: The matrix of the linear system.
+    :param b: The right-hand sides of the linear system.  Must be of the appropriate size.
+    :returns The least squares solution x of the linear system Ax = b.
+    The failure has been reported as a bug in Torch 1.10:
+    https://gitanswer.com/pytorch-lstsq-not-working-with-autograd-cplusplus-1022752878
+    """
+    return A.pinverse() @ b
+
+
 class Arima_0_1_1(torch.nn.Module):
     """ARIMA(0,1,1) time series.
 
@@ -40,7 +52,8 @@ class Arima_0_1_1(torch.nn.Module):
         size = data.size()
         assert len(size) == 1
         length = size[0]
-        solution, _, _, _ = torch.linalg.lstsq(self._ma_matrix(length), data - self.arma_const, driver="gels")
+        solution = lstsq(self._ma_matrix(length), data - self.arma_const)
+        # solution, _, _, _ = torch.linalg.lstsq(self._ma_matrix(length), data - self.arma_const, driver="gels")
         return solution
 
     def forward(self, time_block: torch.Tensor) -> torch.Tensor:
@@ -51,7 +64,7 @@ class Arima_0_1_1(torch.nn.Module):
         """
         if not isinstance(time_block, torch.Tensor):
             time_block = torch.tensor(time_block, dtype=torch.float)
-        return self._solve_for_ma_innovations(torch.diff(time_block)) / self.std_innovation
+        return self._solve_for_ma_innovations(torch.diff(time_block)) / self.std_innovation.abs()
 
 
 def ma_matrix(ma_coeff: float, data_length: int) -> np.array:
@@ -70,3 +83,8 @@ def generate_arima_0_1_1(length: int, arma_const: float, ma_coeff: float, std_in
     innovations = np.random.default_rng().normal(loc=0, scale= std_innovation, size=length)
     moving_averages = np.matmul(ma_matrix(ma_coeff, length - 1), innovations) + arma_const
     return np.cumsum(np.concatenate(([initial_value], moving_averages)))
+
+
+def loss(innovations: torch.Tensor) -> torch.Tensor:
+    """Sum of the squares."""
+    return (innovations * innovations).sum()
