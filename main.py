@@ -14,7 +14,7 @@ optim = torch.optim.SGD(model.parameters(), lr=lr_schedule[0])
 previous_loss = None
 for lr in lr_schedule:
     optim.param_groups[0]["lr"] = lr
-    loss = lib.loss(model.forward(train))
+    loss = lib.loss(model, train)
     # Do some early stopping even though all the results are complete overfit:
     if previous_loss is not None and 1 > loss > 0.9 * previous_loss or 0.2 > loss > 0.8 * previous_loss:
         print(f"Loss: {loss:.5f}, early stopping")
@@ -23,4 +23,5 @@ for lr in lr_schedule:
     optim.zero_grad()
     loss.backward()
     optim.step()
-    print(f"Loss: {loss:.5f}, c={model.arma_const.item():.5f}, theta={model.ma_coeff.item():.5f}, sigma:{model.std_innovation.item():.5f}")
+    print(f"Loss: {loss:.5f}, c={model.arma_const.item():.5f}, theta={model.ma_coeff.item():.5f}, "
+          f"sigma:{model.std_innovation.item():.5f}")
