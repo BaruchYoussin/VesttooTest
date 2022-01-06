@@ -7,8 +7,8 @@ print(data)
 
 train = data[:14]
 
-epochs = 10  # no batches: each epoch is one run
-lr_schedule = [1e-3] + 4 * [1e-1] + (epochs - 5) * [0.8]
+epochs = 100  # no batches: each epoch is one run
+lr_schedule = [1e-3] + 4 * [1e-3] + (epochs - 5) * [1e-2]
 model = lib.Arima_0_1_1()
 optim = torch.optim.SGD(model.parameters(), lr=lr_schedule[0])
 previous_loss = None

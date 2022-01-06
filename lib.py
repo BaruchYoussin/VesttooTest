@@ -15,7 +15,7 @@ class Arima_0_1_1(torch.nn.Module):
         super().__init__()
         self.arma_const = torch.nn.Parameter(torch.randn(1, dtype=torch.float) if arma_const is None
                                              else torch.tensor(arma_const, dtype=torch.float))
-        self.ma_coeff = torch.nn.Parameter(torch.randn(1, dtype=torch.float) if ma_coeff is None
+        self.ma_coeff = torch.nn.Parameter(0.5 * torch.randn(1, dtype=torch.float) if ma_coeff is None
                                            else torch.tensor(ma_coeff, dtype=torch.float))
         self.std_innovation = torch.nn.Parameter(1 + torch.randn(1, dtype=torch.float) if std_innovation is None
                                                  else torch.tensor(std_innovation, dtype=torch.float))
@@ -72,8 +72,6 @@ def solve_for_innovations(model: Arima_0_1_1, time_block: torch.Tensor) -> torch
     :param time_block: a 1-dim object convertible to a 1-dim tensor.
     :returns The tensor of innovations normalized to std = 1.
     """
-    if not isinstance(time_block, torch.Tensor):
-        time_block = torch.tensor(time_block, dtype=torch.float)
     return _solve_for_ma_innovations(model, torch.diff(time_block)) / model.std_innovation.abs()
 
 
@@ -97,5 +95,8 @@ def generate_arima_0_1_1(length: int, arma_const: float, ma_coeff: float, std_in
 
 def loss(model: Arima_0_1_1, time_block: torch.Tensor) -> torch.Tensor:
     """Sum of the squares of the innovations."""
-    innovations = solve_for_innovations(model, time_block)
+    if not isinstance(time_block, torch.Tensor):
+        time_block = torch.tensor(time_block, dtype=torch.float)
+    differences = time_block.diff()
+    innovations = solve_for_innovations(model, differences)
     return (innovations * innovations).sum()
