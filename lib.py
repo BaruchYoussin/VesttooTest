@@ -87,8 +87,8 @@ def _ma_matrix_numpy(ma_coeff: float, data_length: int) -> np.array:
 
 
 def generate_arima_0_1_1(length: int, arma_const: float, ma_coeff: float, std_innovation:float,
-                         initial_value:float) -> np.array:
-    innovations = np.random.default_rng().normal(loc=0, scale= std_innovation, size=length)
+                         initial_value:float, seed=None) -> np.array:
+    innovations = np.random.default_rng(seed).normal(loc=0, scale= std_innovation, size=length)
     moving_averages = np.matmul(_ma_matrix_numpy(ma_coeff, length - 1), innovations) + arma_const
     return np.cumsum(np.concatenate(([initial_value], moving_averages)))
 

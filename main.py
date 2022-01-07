@@ -2,10 +2,18 @@ import torch.optim
 
 import lib
 
-data = lib.generate_arima_0_1_1(length=20, arma_const=1, ma_coeff=0.5, std_innovation=1, initial_value=-1)
+data_length = 20
+train_length = 14
+np_seed = 42
+torch_seed = -0x3a9357fb9
+
+data = lib.generate_arima_0_1_1(length=data_length, arma_const=1, ma_coeff=0.5, std_innovation=1, initial_value=-1,
+                                seed=np_seed)
 print(data)
 
-train = data[:14]
+torch.manual_seed(torch_seed)
+
+train = data[:train_length]
 
 epochs = 100  # no batches: each epoch is one run
 lr_schedule = [1e-3] + 4 * [1e-3] + (epochs - 5) * [1e-2]
