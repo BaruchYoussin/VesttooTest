@@ -31,5 +31,5 @@ for n_iteration, lr in enumerate(lr_schedule):
     optim.zero_grad()
     loss.backward()
     optim.step()
-    print(f"Iter: {n_iteration}, Loss: {loss:.5f}, c={model.arma_const.item():.5f}, theta={model.ma_coeff.item():.5f}, "
+    print(f"Iter: {n_iteration}, Loss: {loss:.5f}, c={model.arma_const.item():.5f}, theta={model.ma_coeff().item():.5f}, "
           f"sigma:{model.std_innovation.item():.5f}")

@@ -1,4 +1,6 @@
 # ARIMA(0,1,1) module
+import math
+
 import numpy as np
 import torch.nn
 
@@ -10,17 +12,27 @@ class Arima_0_1_1(torch.nn.Module):
     and learn the optimal ARIMA(0,1,1) parameters.
     The innovation terms are assumed to be normally distributed with zero mean.
     There is no transformation of data, and for this reason forward(..) is not implemented.
+    Fields:
+    arma_const: c in the doc, MaxLikelihoodARIMA.odt
+    tan_ma_coeff: tan(theta_1 * pi/2) where theta_1 is the first Moving Average coefficient.
+    std_innovation: the std of the innovation process, sigma in the doc.
+    The initial value Y_0 is not included in the parameters since it is not used in learning.
     """
     def __init__(self, arma_const=None, ma_coeff=None, std_innovation=None):
         super().__init__()
         self.arma_const = torch.nn.Parameter(torch.randn(1, dtype=torch.float) if arma_const is None
                                              else torch.tensor(arma_const, dtype=torch.float))
-        self.ma_coeff = torch.nn.Parameter(0.5 * torch.randn(1, dtype=torch.float) if ma_coeff is None
-                                           else torch.tensor(ma_coeff, dtype=torch.float))
+        # self.ma_coeff = torch.nn.Parameter(0.5 * torch.randn(1, dtype=torch.float) if ma_coeff is None
+        #                                    else torch.tensor(ma_coeff, dtype=torch.float))
+        self.tan_ma_coeff = torch.nn.Parameter(torch.randn(1, dtype=torch.float) if ma_coeff is None
+                                               else torch.tensor(math.tan(ma_coeff * math.pi / 2), dtype=torch.float))
         self.std_innovation = torch.nn.Parameter(1 + torch.randn(1, dtype=torch.float) if std_innovation is None
                                                  else torch.tensor(std_innovation, dtype=torch.float))
         # If self.std_innovation is negative, its absolute value is used as the std of the generated innovations.
-        # The initial value Y_0 is not included since it is not used in learning.
+
+    def ma_coeff(self):
+        """Moving average coefficient, theta_1 in the doc, MaxLikelihoodARIMA.odt"""
+        return self.tan_ma_coeff.atan() * 2 / math.pi
 
 
 def _ma_matrix_torch(ma_coeff: torch.Tensor, data_length: int) -> torch.Tensor:
@@ -60,7 +72,7 @@ def _solve_for_ma_innovations(model: Arima_0_1_1, data: torch.Tensor) -> torch.T
     size = data.size()
     assert len(size) == 1
     length = size[0]
-    solution = lstsq(_ma_matrix_torch(model.ma_coeff, length), data - model.arma_const)
+    solution = lstsq(_ma_matrix_torch(model.ma_coeff(), length), data - model.arma_const)
     # solution, _, _, _ = torch.linalg.lstsq(_ma_matrix_torch(model.ma_coeff, length), data - model.arma_const,
     # driver="gels")
     return solution
@@ -142,5 +154,5 @@ def loss(model: Arima_0_1_1, time_block) -> torch.Tensor:
     sizeofX = differences.size()
     assert len(sizeofX) == 1
     length = sizeofX[0]
-    cov_matrix = _cov_matrix(model.ma_coeff, model.std_innovation, length)
+    cov_matrix = _cov_matrix(model.ma_coeff(), model.std_innovation, length)
     return _squares(X=differences, arma_const=model.arma_const, cov_matrix=cov_matrix) + cov_matrix.logdet()
