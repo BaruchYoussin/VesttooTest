@@ -49,11 +49,11 @@ class Test(TestCase):
 
     def test_solve_for_innovations(self):
         model = lib.Arima_0_1_1(arma_const=0, ma_coeff=1 / 2, std_innovation=0.5)
-        data = [1, 2, 0]
+        data = torch.tensor([1, 2, 0])
         self.assertTrue((lib.solve_for_innovations(model, data) - torch.tensor([12 / 7, 8 / 7, -32 / 7], dtype=torch.float))
                         .abs().max() < 1e-6)
         model = lib.Arima_0_1_1(arma_const=-1, ma_coeff=1 / 3, std_innovation=0.5)
-        data = [1, 1, 2]
+        data = torch.tensor([1, 1, 2])
         self.assertTrue((lib.solve_for_innovations(model, data) - torch.tensor([24 / 91, 174 / 91, 306 / 91],
                                                                                dtype=torch.float))
                         .abs().max() < 1e-6)
