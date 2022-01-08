@@ -20,7 +20,7 @@ lr_schedule = [1e-3] + 4 * [1e-3] + (epochs - 5) * [1e-2]
 model = lib.Arima_0_1_1()
 optim = torch.optim.SGD(model.parameters(), lr=lr_schedule[0])
 previous_loss = None
-for lr in lr_schedule:
+for n_iteration, lr in enumerate(lr_schedule):
     optim.param_groups[0]["lr"] = lr
     loss = lib.loss(model, train)
     # Do some early stopping even though all the results are complete overfit:
@@ -31,5 +31,5 @@ for lr in lr_schedule:
     optim.zero_grad()
     loss.backward()
     optim.step()
-    print(f"Loss: {loss:.5f}, c={model.arma_const.item():.5f}, theta={model.ma_coeff.item():.5f}, "
+    print(f"Iter: {n_iteration}, Loss: {loss:.5f}, c={model.arma_const.item():.5f}, theta={model.ma_coeff.item():.5f}, "
           f"sigma:{model.std_innovation.item():.5f}")

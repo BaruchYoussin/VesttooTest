@@ -20,6 +20,7 @@ class Arima_0_1_1(torch.nn.Module):
         self.std_innovation = torch.nn.Parameter(1 + torch.randn(1, dtype=torch.float) if std_innovation is None
                                                  else torch.tensor(std_innovation, dtype=torch.float))
         # If self.std_innovation is negative, its absolute value is used as the std of the generated innovations.
+        # The initial value Y_0 is not included since it is not used in learning.
 
 
 def _ma_matrix_torch(ma_coeff: torch.Tensor, data_length: int) -> torch.Tensor:
@@ -93,10 +94,53 @@ def generate_arima_0_1_1(length: int, arma_const: float, ma_coeff: float, std_in
     return np.cumsum(np.concatenate(([initial_value], moving_averages)))
 
 
-def loss(model: Arima_0_1_1, time_block: torch.Tensor) -> torch.Tensor:
+def old_loss(model: Arima_0_1_1, time_block: torch.Tensor) -> torch.Tensor:
     """Sum of the squares of the innovations."""
     if not isinstance(time_block, torch.Tensor):
         time_block = torch.tensor(time_block, dtype=torch.float)
     differences = time_block.diff()
     innovations = solve_for_innovations(model, differences)
     return (innovations * innovations).sum()
+
+
+def _cov_matrix(ma_coeff: torch.Tensor, std_innovation: torch.Tensor, data_length: int) -> torch.Tensor:
+    """Returns the covariance matrix per the doc, MaxLikelihoodARIMA.odt
+
+    :param ma_coeff: theta_1 in the doc.
+    :param std_innovation: sigma in the doc.
+    :param data_length: the length of the difference series, n + 1 in the doc
+    :returns The covariance matrix, data_length x data_length.
+    """
+    matrix = (ma_coeff ** 2 + 1) * torch.tensor(np.eye(data_length, k=0, dtype=np.float32)) + ma_coeff * torch.tensor(
+        np.eye(data_length, k=1, dtype=np.float32) + np.eye(data_length, k=-1, dtype=np.float32))
+    return std_innovation ** 2 * matrix
+
+
+def _squares(X: torch.Tensor, arma_const: torch.Tensor, cov_matrix: torch.Tensor) -> torch.Tensor:
+    """Returns (X - c) Cov^(-1) (X - c)^T in the doc, MaxLikelihoodARIMA.odt
+
+    :param X: the time series of the differences, X in the doc.
+    :param arma_const: c in the doc.
+    :param cov_matrix: Cov in the doc.
+    :returns as above.
+    """
+    matrix_inverse = cov_matrix.inverse()
+    vector = X - arma_const
+    return vector @ matrix_inverse @ vector.T
+
+
+def loss(model: Arima_0_1_1, time_block) -> torch.Tensor:
+    """Per the doc, MaxLikelihoodARIMA.odt
+
+    :param model: The model to be learned.
+    :param time_block: the original time series, X in the doc.
+    :returns the loss as in the doc.
+    """
+    if not isinstance(time_block, torch.Tensor):
+        time_block = torch.tensor(time_block, dtype=torch.float)
+    differences = time_block.diff()
+    sizeofX = differences.size()
+    assert len(sizeofX) == 1
+    length = sizeofX[0]
+    cov_matrix = _cov_matrix(model.ma_coeff, model.std_innovation, length)
+    return _squares(X=differences, arma_const=model.arma_const, cov_matrix=cov_matrix) + cov_matrix.logdet()
