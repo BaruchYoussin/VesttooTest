@@ -1,6 +1,6 @@
 import math
 from unittest import TestCase
-
+import numpy as np
 import torch
 
 import lib
@@ -81,3 +81,10 @@ class Test(TestCase):
             (lib.loss(model=model, time_block=[0, 2, 5])
              - torch.tensor([17/21 + math.log(21)], dtype=torch.float))
             .abs().max() < 1e-6)
+
+    def test_prob_estimate(self):
+        model = lib.Arima_0_1_1(arma_const=0, ma_coeff=0, std_innovation=1)
+        self.assertEqual(1, lib.prob_estimate(model, np.array([0, 0])))
+        self.assertTrue(abs(lib.prob_estimate(model, np.array([0, 5]))) < 1e-4)
+        model = lib.Arima_0_1_1(arma_const=0, ma_coeff=0.5, std_innovation=1)
+        self.assertEqual(1, lib.prob_estimate(model, np.array([0, 0])))
